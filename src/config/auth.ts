@@ -14,8 +14,19 @@ const jwtExpiration = process.env.JWT_EXPIRATION || '24h';
  * @returns The JWT token
  */
 const generateToken = (userId: number): string => {
-  // @ts-ignore - Using valid jwt.sign parameters but TypeScript has issues with the types
-  return jwt.sign({ id: userId }, jwtSecret, { expiresIn: jwtExpiration });
+  console.log('Generating token for user:', userId);
+  console.log('Using JWT secret length:', jwtSecret.length);
+  console.log('JWT expiration:', jwtExpiration);
+  
+  try {
+    // @ts-ignore - Using valid jwt.sign parameters but TypeScript has issues with the types
+    const token = jwt.sign({ id: userId }, jwtSecret, { expiresIn: jwtExpiration });
+    console.log('Token generated successfully');
+    return token;
+  } catch (error) {
+    console.error('Error generating token:', error);
+    throw error;
+  }
 };
 
 /**

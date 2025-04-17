@@ -5,11 +5,10 @@ import { authenticateJWT } from '../middlewares/auth.middleware';
 const router = Router();
 
 // Public routes
-router.post('/register', AuthController.register);
 router.post('/login', AuthController.login);
 
 // Protected routes
 router.get('/profile', authenticateJWT, AuthController.getProfile);
 router.put('/profile', authenticateJWT, AuthController.updateProfile);
 
-export default router; 
+export default router;
