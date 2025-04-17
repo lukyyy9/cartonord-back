@@ -27,12 +27,33 @@ export interface UserUpdateDTO {
 export interface Map {
   id: number;
   title: string;
-  description: string;
+  description?: string;
   slug: string;
-  dataFileUrl: string;
-  styleFileUrl: string;
-  legendFileUrl: string;
-  imageFileUrl: string;
+  location?: string;
+  
+  // GeoJSON layer URLs
+  urbanGeojsonUrl?: string;
+  roadsGeojsonUrl?: string;
+  waterGeojsonUrl?: string;
+  buildingsGeojsonUrl?: string;
+  greenAreasGeojsonUrl?: string;
+  poisGeojsonUrl?: string;
+  
+  // Additional files
+  renderedImageUrl?: string;
+  pdfExportUrl?: string;
+  pictosFolderUrl?: string;
+  logosFolderUrl?: string;
+  
+  // Legacy fields
+  dataFileUrl?: string;
+  styleFileUrl?: string;
+  legendFileUrl?: string;
+  imageFileUrl?: string;
+  
+  // Additional metadata
+  geojsonLayers?: object;
+  
   isPublished: boolean;
   userId: number;
   createdAt: Date;
@@ -41,12 +62,33 @@ export interface Map {
 
 export interface MapCreateDTO {
   title: string;
-  description: string;
+  description?: string;
   slug?: string;
+  location?: string;
+  
+  // GeoJSON layer URLs
+  urbanGeojsonUrl?: string;
+  roadsGeojsonUrl?: string;
+  waterGeojsonUrl?: string;
+  buildingsGeojsonUrl?: string;
+  greenAreasGeojsonUrl?: string;
+  poisGeojsonUrl?: string;
+  
+  // Additional files
+  renderedImageUrl?: string;
+  pdfExportUrl?: string;
+  pictosFolderUrl?: string;
+  logosFolderUrl?: string;
+  
+  // Legacy fields
   dataFileUrl?: string;
   styleFileUrl?: string;
   legendFileUrl?: string;
   imageFileUrl?: string;
+  
+  // Additional metadata
+  geojsonLayers?: object;
+  
   isPublished?: boolean;
   userId: number;
 }
@@ -55,10 +97,31 @@ export interface MapUpdateDTO {
   title?: string;
   description?: string;
   slug?: string;
+  location?: string;
+  
+  // GeoJSON layer URLs
+  urbanGeojsonUrl?: string;
+  roadsGeojsonUrl?: string;
+  waterGeojsonUrl?: string;
+  buildingsGeojsonUrl?: string;
+  greenAreasGeojsonUrl?: string;
+  poisGeojsonUrl?: string;
+  
+  // Additional files
+  renderedImageUrl?: string;
+  pdfExportUrl?: string;
+  pictosFolderUrl?: string;
+  logosFolderUrl?: string;
+  
+  // Legacy fields
   dataFileUrl?: string;
   styleFileUrl?: string;
   legendFileUrl?: string;
   imageFileUrl?: string;
+  
+  // Additional metadata
+  geojsonLayers?: object;
+  
   isPublished?: boolean;
   userId?: number;
 }
@@ -66,7 +129,10 @@ export interface MapUpdateDTO {
 // File upload types
 export interface FileUploadRequest {
   mapId: string;
-  fileType: 'data' | 'style' | 'legend' | 'image';
+  fileType: 'data' | 'style' | 'legend' | 'image' | 
+            'urban' | 'roads' | 'water' | 'buildings' | 
+            'green' | 'pois' | 'rendered' | 'pdf' | 
+            'pictos' | 'logos';
   contentType: string;
 }
 

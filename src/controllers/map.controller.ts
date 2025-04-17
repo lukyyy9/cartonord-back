@@ -16,14 +16,53 @@ export class MapController {
         throw new ApiError(401, 'Authentication required');
       }
 
-      const { title, description, isPublished = false } = req.body;
+      const { 
+        title, 
+        description, 
+        location,
+        slug,
+        isPublished = false,
+        urbanGeojsonUrl,
+        roadsGeojsonUrl,
+        waterGeojsonUrl,
+        buildingsGeojsonUrl,
+        greenAreasGeojsonUrl,
+        poisGeojsonUrl,
+        renderedImageUrl,
+        pdfExportUrl,
+        pictosFolderUrl,
+        logosFolderUrl,
+        dataFileUrl,
+        styleFileUrl,
+        legendFileUrl,
+        imageFileUrl,
+        geojsonLayers
+      } = req.body;
+      
       const userId = req.user.id;
 
       // Create the map
       const map = await Map.create({
         title,
+        slug,
         description,
+        location,
         isPublished,
+        urbanGeojsonUrl,
+        roadsGeojsonUrl,
+        waterGeojsonUrl,
+        buildingsGeojsonUrl,
+        greenAreasGeojsonUrl,
+        poisGeojsonUrl,
+        renderedImageUrl,
+        pdfExportUrl,
+        pictosFolderUrl,
+        logosFolderUrl,
+        dataFileUrl,
+        styleFileUrl,
+        legendFileUrl,
+        imageFileUrl,
+        geojsonLayers,
         userId,
       });
 
@@ -222,42 +261,39 @@ export class MapController {
         throw new ApiError(401, 'Authentication required');
       }
       
-      const { mapSlug, fileType, extension } = req.body;
+      // Handle both query param and body formats for flexibility
+      const folder = req.query.folder as string || req.body.folder;
+      const filename = req.query.filename as string || req.body.filename;
       
-      if (!mapSlug || !fileType || !extension) {
-        throw new ApiError(400, 'Missing required fields');
+      if (!folder || !filename) {
+        throw new ApiError(400, 'Missing required fields: folder and filename');
       }
       
-      // Validate file type
-      const allowedFileTypes = ['data', 'style', 'legend', 'image'];
-      if (!allowedFileTypes.includes(fileType)) {
-        throw new ApiError(400, 'Invalid file type');
+      // Extract file extension
+      const extension = filename.split('.').pop()?.toLowerCase();
+      if (!extension) {
+        throw new ApiError(400, 'Invalid filename format');
       }
       
-      // Validate extension based on file type
-      const validExtensions: Record<string, string[]> = {
-        data: ['geojson'],
-        style: ['json'],
-        legend: ['json'],
-        image: ['jpg', 'jpeg', 'png', 'webp', 'svg'],
+      // Determine content type based on extension
+      const contentTypeMap: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'svg': 'image/svg+xml',
+        'pdf': 'application/pdf',
+        'geojson': 'application/json',
+        'json': 'application/json',
       };
       
-      if (!validExtensions[fileType].includes(extension.toLowerCase())) {
-        throw new ApiError(400, `Invalid extension for ${fileType}`);
-      }
+      const contentType = contentTypeMap[extension] || 'application/octet-stream';
       
       // Generate the S3 key
-      let s3Key = `cartes/${mapSlug}/${fileType}`;
-      if (fileType === 'data') {
-        s3Key += '.geojson';
-      } else if (fileType === 'style' || fileType === 'legend') {
-        s3Key += '.json';
-      } else {
-        s3Key += `.${extension}`;
-      }
+      const s3Key = `${folder}/${filename}`;
       
       // Generate a pre-signed URL
-      const signedUrl = await generatePresignedUploadUrl(s3Key, 'application/octet-stream', 600); // 10 minutes
+      const signedUrl = await generatePresignedUploadUrl(s3Key, contentType, 600); // 10 minutes
       
       res.status(200).json({
         url: signedUrl,
@@ -300,7 +336,9 @@ export class MapController {
       // Determine which field to update based on file type
       const updateData: Partial<MapUpdateDTO> = {};
       
+      // Support both legacy and new file types
       switch (fileType) {
+        // Legacy file types
         case 'data':
           updateData.dataFileUrl = s3Key;
           break;
@@ -312,6 +350,38 @@ export class MapController {
           break;
         case 'image':
           updateData.imageFileUrl = s3Key;
+          break;
+          
+        // New file types
+        case 'urban':
+          updateData.urbanGeojsonUrl = s3Key;
+          break;
+        case 'roads':
+          updateData.roadsGeojsonUrl = s3Key;
+          break;
+        case 'water':
+          updateData.waterGeojsonUrl = s3Key;
+          break;
+        case 'buildings':
+          updateData.buildingsGeojsonUrl = s3Key;
+          break;
+        case 'green':
+          updateData.greenAreasGeojsonUrl = s3Key;
+          break;
+        case 'pois':
+          updateData.poisGeojsonUrl = s3Key;
+          break;
+        case 'rendered':
+          updateData.renderedImageUrl = s3Key;
+          break;
+        case 'pdf':
+          updateData.pdfExportUrl = s3Key;
+          break;
+        case 'pictos':
+          updateData.pictosFolderUrl = s3Key;
+          break;
+        case 'logos':
+          updateData.logosFolderUrl = s3Key;
           break;
         default:
           throw new ApiError(400, 'Invalid file type');
@@ -349,29 +419,126 @@ export class MapController {
         throw new ApiError(403, 'Accès non autorisé');
       }
       
-      // Déterminer le chemin S3 du fichier
-      let s3Key = `cartes/${slug}/${fileType}`;
+      // Determine the S3 key based on the file type
+      let s3Key = '';
+      
+      // Handle both legacy and new file types
       switch (fileType) {
+        // Legacy file types
         case 'data':
-          s3Key += '.geojson';
+          s3Key = map.dataFileUrl || '';
           break;
         case 'style':
+          s3Key = map.styleFileUrl || '';
+          break;
         case 'legend':
-          s3Key += '.json';
+          s3Key = map.legendFileUrl || '';
           break;
         case 'image':
-          // Extraire l'extension du chemin stocké
-          const imageUrl = map.imageFileUrl;
-          const extension = imageUrl.substring(imageUrl.lastIndexOf('.'));
-          s3Key += extension;
+          s3Key = map.imageFileUrl || '';
+          break;
+          
+        // New file types
+        case 'urban':
+          s3Key = map.urbanGeojsonUrl || '';
+          break;
+        case 'roads':
+          s3Key = map.roadsGeojsonUrl || '';
+          break;
+        case 'water':
+          s3Key = map.waterGeojsonUrl || '';
+          break;
+        case 'buildings':
+          s3Key = map.buildingsGeojsonUrl || '';
+          break;
+        case 'green':
+          s3Key = map.greenAreasGeojsonUrl || '';
+          break;
+        case 'pois':
+          s3Key = map.poisGeojsonUrl || '';
+          break;
+        case 'rendered':
+          s3Key = map.renderedImageUrl || '';
+          break;
+        case 'pdf':
+          s3Key = map.pdfExportUrl || '';
           break;
         default:
           throw new ApiError(400, 'Type de fichier invalide');
       }
       
-      // Option 1: Renvoyer une URL présignée à courte durée
+      if (!s3Key) {
+        throw new ApiError(404, 'Fichier non trouvé');
+      }
+      
+      // Generate a pre-signed URL for the file
       const url = await generatePresignedGetUrl(s3Key, 300); // 5 minutes
       res.json({ url });
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  /**
+   * Get admin dashboard statistics
+   */
+  static async getAdminStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+      
+      // Count total maps
+      const totalMaps = await Map.count();
+      
+      // Count total views (placeholder - you would need to implement a view counter)
+      const totalViews = 0;
+      
+      // Calculate total number of GeoJSON layers
+      let totalGeoJsonLayers = 0;
+      const maps = await Map.findAll();
+      
+      // Get the most recent map title
+      let latestMapTitle = null;
+      if (maps.length > 0) {
+        latestMapTitle = maps[0].title;
+      }
+      
+      // Count layers and pictograms (placeholder - in a real implementation, you would query S3)
+      maps.forEach(map => {
+        // Count filled GeoJSON URLs as layers
+        if (map.urbanGeojsonUrl) totalGeoJsonLayers++;
+        if (map.roadsGeojsonUrl) totalGeoJsonLayers++;
+        if (map.waterGeojsonUrl) totalGeoJsonLayers++;
+        if (map.buildingsGeojsonUrl) totalGeoJsonLayers++;
+        if (map.greenAreasGeojsonUrl) totalGeoJsonLayers++;
+        if (map.poisGeojsonUrl) totalGeoJsonLayers++;
+        if (map.dataFileUrl) totalGeoJsonLayers++;
+      });
+      
+      // Placeholder for pictogram counts
+      const totalPictograms = 0;
+      const totalLogos = 0;
+      
+      // Placeholder for storage stats
+      const storageUsed = '0 MB';
+      const storageBreakdown = {
+        geojsonStorage: '0 MB',
+        imageStorage: '0 MB',
+        pictoStorage: '0 MB',
+        otherStorage: '0 MB'
+      };
+      
+      res.status(200).json({
+        totalMaps,
+        totalViews,
+        storageUsed,
+        totalGeoJsonLayers,
+        totalPictograms,
+        totalLogos,
+        latestMapTitle,
+        storageBreakdown
+      });
     } catch (error) {
       next(error);
     }

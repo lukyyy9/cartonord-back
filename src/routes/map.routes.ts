@@ -20,4 +20,7 @@ router.get('/slug/:slug/file/:fileType', MapController.getMapFile);
 router.post('/upload-url', authenticateJWT, MapController.getUploadUrl);
 router.put('/:id/file', authenticateJWT, MapController.updateFileUrl);
 
+// Admin routes
+router.get('/admin/stats', authenticateJWT, MapController.getAdminStats);
+
 export default router; 

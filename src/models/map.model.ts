@@ -35,6 +35,86 @@ export class Map extends Model {
   slug!: string;
 
   @Column({
+    type: DataType.STRING(255),
+    allowNull: true,
+  })
+  location?: string;
+
+  // Base GeoJSON files
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'urban_geojson_url'
+  })
+  urbanGeojsonUrl?: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'roads_geojson_url'
+  })
+  roadsGeojsonUrl?: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'water_geojson_url'
+  })
+  waterGeojsonUrl?: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'buildings_geojson_url'
+  })
+  buildingsGeojsonUrl?: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'green_areas_geojson_url'
+  })
+  greenAreasGeojsonUrl?: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'pois_geojson_url'
+  })
+  poisGeojsonUrl?: string;
+
+  // Additional files
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'rendered_image_url'
+  })
+  renderedImageUrl?: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'pdf_export_url'
+  })
+  pdfExportUrl?: string;
+
+  // Pictos and logos
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'pictos_folder_url'
+  })
+  pictosFolderUrl?: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: 'logos_folder_url'
+  })
+  logosFolderUrl?: string;
+
+  // Keep existing fields for compatibility
+  @Column({
     type: DataType.TEXT,
     allowNull: true,
     field: 'data_file_url'
@@ -61,6 +141,14 @@ export class Map extends Model {
     field: 'image_file_url'
   })
   imageFileUrl?: string;
+
+  // Additional metadata for client files
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    field: 'geojson_layers'
+  })
+  geojsonLayers?: object;
 
   @Column({
     type: DataType.BOOLEAN,
