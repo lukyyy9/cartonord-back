@@ -23,9 +23,6 @@ const seed = async () => {
   } catch (error) {
     console.error('Error seeding database:', error);
     throw error;
-  } finally {
-    // Close the database connection
-    await sequelize.close();
   }
 };
 
