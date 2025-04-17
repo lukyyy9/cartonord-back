@@ -1,18 +1,11 @@
 import { Sequelize } from 'sequelize-typescript';
-import dotenv from 'dotenv';
 import path from 'path';
-
-dotenv.config();
+import { databaseConfig, shouldResetDatabase } from './database.config';
 
 // Sequelize database connection
 const sequelize = new Sequelize({
   dialect: 'mysql',
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT) || 3306,
-  username: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  logging: process.env.NODE_ENV !== 'production',
+  ...databaseConfig,
   models: [path.join(__dirname, '../models')],
 });
 
@@ -28,9 +21,9 @@ const testConnection = async (): Promise<void> => {
 };
 
 // Initialize database (sync all models)
-const initializeDatabase = async (force: boolean = false): Promise<void> => {
+const initializeDatabase = async (): Promise<void> => {
   try {
-    await sequelize.sync({ force });
+    await sequelize.sync({ force: shouldResetDatabase() });
     console.log('Database synchronized successfully');
   } catch (err) {
     console.error('Failed to synchronize database:', err);

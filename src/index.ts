@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import routes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { testConnection, initializeDatabase, sequelize } from './config/database';
-import { seedDatabase } from './database/seeder';
+import seedDatabase from './database/seeder';
 
 // Load environment variables
 dotenv.config();
@@ -45,9 +45,7 @@ const startServer = async () => {
     await testConnection();
     
     // Initialize database - sync all models
-    // Set force to true only in development to drop tables and recreate
-    const force = process.env.NODE_ENV === 'development' && process.env.DB_FORCE_RESET === 'true';
-    await initializeDatabase(force);
+    await initializeDatabase();
     
     // Seed database with initial data
     await seedDatabase();
