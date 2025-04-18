@@ -543,6 +543,135 @@ export class MapController {
       next(error);
     }
   }
+
+  /**
+   * Upload multiple files in batch
+   */
+  static async batchUpload(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+      
+      const { mapId } = req.params;
+      const { fileType } = req.body;
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        throw new ApiError(400, 'No files provided');
+      }
+      
+      if (!mapId) {
+        throw new ApiError(400, 'Map ID is required');
+      }
+      
+      // Verify map ownership
+      const map = await Map.findByPk(Number(mapId));
+      if (!map) {
+        throw new ApiError(404, 'Map not found');
+      }
+      
+      if (map.userId !== req.user.id) {
+        throw new ApiError(403, 'Not authorized to update this map');
+      }
+      
+      // Process each file
+      const uploadPromises = files.map(async (file) => {
+        const extension = file.originalname.split('.').pop()?.toLowerCase();
+        if (!extension) {
+          return { error: `Invalid filename format for ${file.originalname}` };
+        }
+        
+        // Determine folder based on file type
+        let folder: string;
+        
+        if (fileType === 'geojson') {
+          folder = 'geojson';
+        } else if (fileType === 'pictos') {
+          folder = 'pictos';
+        } else {
+          return { error: `Invalid file type: ${fileType}` };
+        }
+        
+        // Generate unique name if needed
+        const fileName = `${Date.now()}-${file.originalname}`;
+        
+        // Generate the S3 key
+        const s3Key = `${map.slug}/${folder}/${fileName}`;
+        
+        // Determine content type
+        const contentTypeMap: Record<string, string> = {
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'webp': 'image/webp',
+          'svg': 'image/svg+xml',
+          'pdf': 'application/pdf',
+          'geojson': 'application/json',
+          'json': 'application/json',
+        };
+        
+        const contentType = contentTypeMap[extension] || 'application/octet-stream';
+        
+        // Upload to S3
+        const uploadParams = {
+          Bucket: bucketName,
+          Key: s3Key,
+          Body: file.buffer,
+          ContentType: contentType
+        };
+        
+        try {
+          await s3.upload(uploadParams).promise();
+          
+          // If successful, handle file type specific operations
+          if (fileType === 'geojson') {
+            // Store the GeoJSON URL in geojsonLayers field
+            const currentLayers = map.geojsonLayers || {};
+            await map.update({
+              geojsonLayers: {
+                ...currentLayers,
+                [fileName]: s3Key
+              }
+            });
+          } else if (fileType === 'pictos') {
+            // Update the pictosFolderUrl if not set
+            if (!map.pictosFolderUrl) {
+              await map.update({ pictosFolderUrl: `${map.slug}/pictos` });
+            }
+          }
+          
+          return {
+            originalName: file.originalname,
+            s3Key,
+            success: true
+          };
+        } catch (error) {
+          console.error('S3 upload error:', error);
+          return {
+            originalName: file.originalname,
+            error: 'Failed to upload file to S3',
+            success: false
+          };
+        }
+      });
+      
+      const results = await Promise.all(uploadPromises);
+      
+      // Update the map record with the batch upload status
+      await map.update({
+        lastUpdated: new Date()
+      });
+      
+      res.status(200).json({
+        message: 'Batch upload processed',
+        results,
+        map
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 /**

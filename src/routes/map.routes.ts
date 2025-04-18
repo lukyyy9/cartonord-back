@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { MapController } from '../controllers/map.controller';
 import { authenticateJWT } from '../middlewares/auth.middleware';
+import { batchUpload } from '../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.get('/slug/:slug/file/:fileType', MapController.getMapFile);
 // File upload routes
 router.post('/upload-url', authenticateJWT, MapController.getUploadUrl);
 router.put('/:id/file', authenticateJWT, MapController.updateFileUrl);
+router.post('/:mapId/batch-upload', authenticateJWT, batchUpload, MapController.batchUpload);
 
 // Admin routes
 router.get('/admin/stats', authenticateJWT, MapController.getAdminStats);
