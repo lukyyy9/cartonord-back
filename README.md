@@ -34,6 +34,7 @@ Backend API for the CartNord application, providing a robust interface for manag
    - Database credentials
    - JWT secret
    - AWS credentials
+5. `docker run -d --name cartonord-mariadb -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=cartonord -e MYSQL_USER=root -e MYSQL_PASSWORD=cartonord -p 3306:3306 mariadb:latest`
 
 ### Database Setup
 
