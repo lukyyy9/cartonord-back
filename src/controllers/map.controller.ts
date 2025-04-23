@@ -221,6 +221,158 @@ export class MapController {
   }
 
   /**
+   * Save GeoJSON layers for a map
+   */
+  static async saveGeojsonLayers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+
+      const { id } = req.params;
+      const userId = req.user.id;
+      const { layers } = req.body;
+
+      // Check if the map exists
+      const map = await Map.findByPk(Number(id));
+      if (!map) {
+        throw new ApiError(404, 'Map not found');
+      }
+
+      // Check if the user owns the map
+      if (map.userId !== userId) {
+        throw new ApiError(403, 'Unauthorized access to map');
+      }
+
+      // Update the map's GeoJSON layers
+      await map.update({ 
+        geojsonLayers: layers 
+      });
+
+      res.status(200).json({ 
+        success: true,
+        message: 'GeoJSON layers saved successfully'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get pictograms list
+   */
+  static async getPictograms(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+
+      // List of pictogram categories with their icons
+      // In a real implementation, this would come from a database or storage
+      const pictograms = [
+        {
+          id: 'picto-1',
+          name: 'Restaurant',
+          url: '/pictos/restaurant.png',
+          category: 'Services'
+        },
+        {
+          id: 'picto-2',
+          name: 'Hôtel',
+          url: '/pictos/hotel.png',
+          category: 'Services'
+        },
+        {
+          id: 'picto-3',
+          name: 'Parking',
+          url: '/pictos/parking.png',
+          category: 'Transport'
+        },
+        {
+          id: 'picto-4',
+          name: 'Musée',
+          url: '/pictos/museum.png',
+          category: 'Culture'
+        },
+        {
+          id: 'picto-5',
+          name: 'Plage',
+          url: '/pictos/beach.png',
+          category: 'Loisirs'
+        },
+        {
+          id: 'picto-6',
+          name: 'Parc',
+          url: '/pictos/park.png',
+          category: 'Loisirs'
+        },
+        {
+          id: 'picto-7',
+          name: 'École',
+          url: '/pictos/school.png',
+          category: 'Éducation'
+        },
+        {
+          id: 'picto-8',
+          name: 'Hôpital',
+          url: '/pictos/hospital.png',
+          category: 'Santé'
+        },
+        {
+          id: 'picto-9',
+          name: 'Gare',
+          url: '/pictos/train-station.png',
+          category: 'Transport'
+        }
+      ];
+
+      res.status(200).json(pictograms);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Upload a new pictogram
+   */
+  static async uploadPictogram(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+
+      const { name, category } = req.body;
+      
+      if (!req.file) {
+        throw new ApiError(400, 'No file uploaded');
+      }
+
+      // Generate a unique key for the pictogram in S3
+      const fileKey = `pictograms/${req.user.id}/${Date.now()}-${req.file.originalname}`;
+      
+      // Upload the file to S3
+      await s3.putObject({
+        Bucket: bucketName,
+        Key: fileKey,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype
+      }).promise();
+
+      // Generate a URL for the uploaded pictogram
+      const pictoUrl = await generatePresignedGetUrl(fileKey);
+
+      res.status(201).json({
+        id: `picto-${Date.now()}`,
+        name,
+        url: pictoUrl,
+        category
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Delete a map
    */
   static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -538,6 +690,39 @@ export class MapController {
         totalLogos,
         latestMapTitle,
         storageBreakdown
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get all maps for admin
+   */
+  static async getAdminMaps(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+
+      const { page = 1, limit = 10 } = req.query;
+      const offset = (Number(page) - 1) * Number(limit);
+
+      // Get all maps with pagination
+      const { count, rows: maps } = await Map.findAndCountAll({
+        limit: Number(limit),
+        offset,
+        order: [['createdAt', 'DESC']],
+      });
+
+      res.status(200).json({
+        maps,
+        meta: {
+          total: count,
+          page: Number(page),
+          limit: Number(limit),
+          pages: Math.ceil(count / Number(limit)),
+        },
       });
     } catch (error) {
       next(error);
