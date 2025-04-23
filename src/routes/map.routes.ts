@@ -29,6 +29,9 @@ router.post('/upload-url', authenticateJWT, MapController.getUploadUrl);
 router.put('/:id/file', authenticateJWT, MapController.updateFileUrl);
 router.post('/:mapId/batch-upload', authenticateJWT, batchUpload, MapController.batchUpload);
 
+// Add GeoJSON upload endpoint
+router.post('/:mapId/upload-geojson', authenticateJWT, upload.single('file'), MapController.uploadGeojson);
+
 // Admin routes
 router.get('/admin/stats', authenticateJWT, MapController.getAdminStats);
 router.get('/admin/maps', authenticateJWT, MapController.getAdminMaps);

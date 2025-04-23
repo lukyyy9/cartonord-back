@@ -5,6 +5,8 @@ import { ApiError } from '../middlewares/error.middleware';
 import { FileUploadRequest, MapUpdateDTO } from '../types';
 import { s3, bucketName } from '../config/s3';
 import { Op } from 'sequelize';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 export class MapController {
   /**
@@ -367,6 +369,38 @@ export class MapController {
         url: pictoUrl,
         category
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Upload a GeoJSON file for a map and save it to disk
+   */
+  static async uploadGeojson(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+      const mapId = Number(req.params.mapId);
+      const mapRec = await Map.findByPk(mapId);
+      if (!mapRec) {
+        throw new ApiError(404, 'Map not found');
+      }
+      if (!req.file) {
+        throw new ApiError(400, 'No file uploaded');
+      }
+      // Prepare upload directory
+      const uploadDir = path.resolve(__dirname, '../../geojson_uploads', `map_${mapId}`);
+      await fs.mkdir(uploadDir, { recursive: true });
+      // Sanitize filename and add timestamp
+      const timestamp = Date.now();
+      const safeName = req.file.originalname.replace(/\W/g, '_');
+      const fileName = `${timestamp}_${safeName}`;
+      const filePath = path.join(uploadDir, fileName);
+      // Write file to disk
+      await fs.writeFile(filePath, req.file.buffer);
+      res.status(201).json({ message: 'GeoJSON uploaded', fileName, filePath });
     } catch (error) {
       next(error);
     }
