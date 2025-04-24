@@ -391,7 +391,7 @@ export class MapController {
         throw new ApiError(400, 'No file uploaded');
       }
       // Prepare upload directory
-      const uploadDir = path.resolve(__dirname, '../../geojson_uploads', `map_${mapId}`);
+      const uploadDir = path.resolve(__dirname, '../../uploads', `map_${mapId}`, 'geojson');
       await fs.mkdir(uploadDir, { recursive: true });
       // Sanitize filename and add timestamp
       const timestamp = Date.now();
