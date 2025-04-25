@@ -86,7 +86,7 @@ export class MapController {
         throw new ApiError(404, 'Map not found');
       }
 
-      res.status(200).json({ map });
+      res.status(200).json(map);
     } catch (error) {
       next(error);
     }
@@ -109,7 +109,7 @@ export class MapController {
         throw new ApiError(404, 'Map not found');
       }
 
-      res.status(200).json({ map });
+      res.status(200).json(map);
     } catch (error) {
       next(error);
     }
@@ -400,7 +400,20 @@ export class MapController {
       const filePath = path.join(uploadDir, fileName);
       // Write file to disk
       await fs.writeFile(filePath, req.file.buffer);
-      res.status(201).json({ message: 'GeoJSON uploaded', fileName, filePath });
+
+      // Parse buffer into GeoJSON and update map record
+      let geojson;
+      try {
+        geojson = JSON.parse(req.file.buffer.toString());
+      } catch (err) {
+        throw new ApiError(400, 'Invalid GeoJSON');
+      }
+      const existingLayers = mapRec.geojsonLayers || {};
+      const newLayers = { ...existingLayers, [fileName]: geojson };
+      await mapRec.update({ geojsonLayers: newLayers });
+
+      // Respond with updated layers
+      res.status(201).json({ message: 'GeoJSON uploaded', fileName, filePath, geojsonLayers: newLayers });
     } catch (error) {
       next(error);
     }

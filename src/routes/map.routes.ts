@@ -10,6 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Public routes
 router.get('/', MapController.getAll);
 router.get('/slug/:slug', MapController.getBySlug);
+router.get('/by-slug/:slug', MapController.getBySlug);
 
 // Protected routes
 router.post('/', authenticateJWT, MapController.create);
