@@ -263,77 +263,114 @@ export class MapController {
   /**
    * Get pictograms list
    */
-  static async getPictograms(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async getCategoryPictograms(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
         throw new ApiError(401, 'Authentication required');
       }
-
-      // List of pictogram categories with their icons
-      // In a real implementation, this would come from a database or storage
-      const pictograms = [
-        {
-          id: 'picto-1',
-          name: 'Restaurant',
-          url: '/pictos/restaurant.png',
-          category: 'Services'
-        },
-        {
-          id: 'picto-2',
-          name: 'Hôtel',
-          url: '/pictos/hotel.png',
-          category: 'Services'
-        },
-        {
-          id: 'picto-3',
-          name: 'Parking',
-          url: '/pictos/parking.png',
-          category: 'Transport'
-        },
-        {
-          id: 'picto-4',
-          name: 'Musée',
-          url: '/pictos/museum.png',
-          category: 'Culture'
-        },
-        {
-          id: 'picto-5',
-          name: 'Plage',
-          url: '/pictos/beach.png',
-          category: 'Loisirs'
-        },
-        {
-          id: 'picto-6',
-          name: 'Parc',
-          url: '/pictos/park.png',
-          category: 'Loisirs'
-        },
-        {
-          id: 'picto-7',
-          name: 'École',
-          url: '/pictos/school.png',
-          category: 'Éducation'
-        },
-        {
-          id: 'picto-8',
-          name: 'Hôpital',
-          url: '/pictos/hospital.png',
-          category: 'Santé'
-        },
-        {
-          id: 'picto-9',
-          name: 'Gare',
-          url: '/pictos/train-station.png',
-          category: 'Transport'
-        }
-      ];
-
-      res.status(200).json(pictograms);
+      const { categoryId } = req.params;
+      // Chemin vers le dossier des pictogrammes
+      const pictogramsDir = path.resolve(__dirname, '../../uploads/pictograms', categoryId);
+      // Vérifier si le dossier existe
+      try {
+        await fs.access(pictogramsDir);
+      } catch (error) {
+        throw new ApiError(404, 'Pictogram category not found');
+      }
+      // Lire les fichiers dans le dossier
+      const pictograms = await fs.readdir(pictogramsDir);
+      // Filtrer les fichiers pour ne garder que les images
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.svg', '.webp', '.gif'];
+      const filteredPictograms = pictograms.filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return imageExtensions.includes(ext);
+      });
+      res.status(200).json({
+        pictograms: filteredPictograms.map(file => ({
+          name: file,
+          categoryId
+            }))
+          });
     } catch (error) {
       next(error);
     }
   }
 
+  /**
+   * Get pictogram categories
+   */
+  static async getPictogramCategories(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+      
+      // Chemin vers le dossier des pictogrammes
+      const pictogramsDir = path.resolve(__dirname, '../../uploads/pictograms');
+      
+      // Vérifier si le dossier existe
+      try {
+        await fs.access(pictogramsDir);
+      } catch (error) {
+        throw new ApiError(404, 'Pictogram categories not found');
+      }
+      
+      // Lire les catégories (dossiers) et filtrer les dossiers cachés
+      const allItems = await fs.readdir(pictogramsDir);
+      const categories = allItems.filter(item => !item.startsWith('.'));
+      
+      res.status(200).json({
+        categories
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+/**
+ * Get a specific pictogram file
+ */
+static async getPictogram(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) {
+      throw new ApiError(401, 'Authentication required');
+    }
+    
+    const { categoryId, pictogramName } = req.params;
+    
+    // Construire le chemin vers le fichier pictogramme
+    const pictogramPath = path.resolve(__dirname, '../../uploads/pictograms', categoryId, pictogramName);
+    
+    // Vérifier si le fichier existe
+    try {
+      await fs.access(pictogramPath);
+    } catch (error) {
+      throw new ApiError(404, 'Pictogramme non trouvé');
+    }
+    
+    // Déterminer le type MIME en fonction de l'extension
+    const extension = pictogramName.split('.').pop()?.toLowerCase();
+    const contentTypeMap: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'svg': 'image/svg+xml',
+      'webp': 'image/webp',
+      'gif': 'image/gif'
+    };
+    const contentType = contentTypeMap[extension || ''] || 'application/octet-stream';
+    
+    // Lire et envoyer le fichier
+    const fileBuffer = await fs.readFile(pictogramPath);
+    
+    res.set('Content-Type', contentType);
+    res.send(fileBuffer);
+    
+  } catch (error) {
+    next(error);
+  }
+}
+  
   /**
    * Upload a new pictogram
    */
@@ -342,32 +379,102 @@ export class MapController {
       if (!req.user) {
         throw new ApiError(401, 'Authentication required');
       }
-
-      const { name, category } = req.body;
       
       if (!req.file) {
         throw new ApiError(400, 'No file uploaded');
       }
-
-      // Generate a unique key for the pictogram in S3
-      const fileKey = `pictograms/${req.user.id}/${Date.now()}-${req.file.originalname}`;
       
-      // Upload the file to S3
-      await s3.putObject({
-        Bucket: bucketName,
-        Key: fileKey,
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype
-      }).promise();
-
-      // Generate a URL for the uploaded pictogram
-      const pictoUrl = await generatePresignedGetUrl(fileKey);
-
+      const { category } = req.body;
+      
+      if (!category) {
+        throw new ApiError(400, 'Category is required');
+      }
+      
+      // Chemin vers le dossier de la catégorie
+      const categoryDir = path.resolve(__dirname, '../../uploads/pictograms', category);
+      
+      // Vérifier si la catégorie existe
+      try {
+        await fs.access(categoryDir);
+      } catch (error) {
+        throw new ApiError(400, `Category "${category}" does not exist`);
+      }
+      
+      // Sanitiser le nom du fichier tout en préservant l'extension
+      const originalName = req.file.originalname;
+      const filenameParts = originalName.split('.');
+      const extension = filenameParts.pop(); // Récupère l'extension
+      const baseName = filenameParts.join('.'); // Récupère le nom sans extension
+      const safeBaseName = baseName.replace(/\W/g, '_');
+      const fileName = `${safeBaseName}.${extension}`;
+            
+      // Chemin de destination du fichier
+      const filePath = path.join(categoryDir, fileName);
+      
+      // Enregistrer le fichier
+      await fs.writeFile(filePath, req.file.buffer);
+      
+      // Répondre avec les informations du pictogramme
       res.status(201).json({
-        id: `picto-${Date.now()}`,
-        name,
-        url: pictoUrl,
-        category
+        success: true,
+        pictogram: {
+          name: fileName,
+          originalName,
+          path: `/uploads/pictograms/${category}/${fileName}`,
+          category,
+          size: req.file.size,
+          createdAt: new Date()
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  /**
+   * Create a new pictogram category
+   */
+  static async createPictogramCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new ApiError(401, 'Authentication required');
+      }
+      
+      const { name } = req.body;
+      
+      if (!name) {
+        throw new ApiError(400, 'Category name is required');
+      }
+      
+      // Sanitiser le nom de la catégorie
+      const safeName = name.replace(/\W/g, '_');
+      
+      // Chemin du dossier à créer
+      const categoryDir = path.resolve(__dirname, '../../uploads/pictograms', safeName);
+      
+      // Vérifier si la catégorie existe déjà
+      try {
+        await fs.access(categoryDir);
+        throw new ApiError(400, `Category "${safeName}" already exists`);
+      } catch (error) {
+        // Si l'erreur est que le dossier n'existe pas, on continue
+        // Sinon, on propage l'erreur
+        if (error instanceof ApiError) {
+          throw error;
+        }
+      }
+      
+      // Créer le dossier
+      await fs.mkdir(categoryDir, { recursive: true });
+      
+      // Répondre avec les informations de la catégorie
+      res.status(201).json({
+        success: true,
+        category: {
+          name: safeName,
+          path: `/uploads/pictograms/${safeName}`,
+          createdAt: new Date()
+        }
       });
     } catch (error) {
       next(error);

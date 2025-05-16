@@ -22,8 +22,11 @@ router.get('/slug/:slug/file/:fileType', MapController.getMapFile);
 
 // New map editor routes
 router.put('/:id/layers', authenticateJWT, MapController.saveGeojsonLayers);
-router.get('/pictos', authenticateJWT, MapController.getPictograms);
-router.post('/pictos/upload', authenticateJWT, upload.single('pictogram'), MapController.uploadPictogram);
+router.get('/admin/pictograms/categories', authenticateJWT, MapController.getPictogramCategories);
+router.get('/admin/pictograms/:categoryId', authenticateJWT, MapController.getCategoryPictograms);
+router.post('/admin/pictograms/newCategory', authenticateJWT, MapController.createPictogramCategory);
+router.post('/admin/pictograms/upload', authenticateJWT, upload.single('pictogram'), MapController.uploadPictogram);
+router.get('/admin/pictograms/:categoryId/:pictogramName', authenticateJWT, MapController.getPictogram);
 
 // File upload routes
 router.post('/upload-url', authenticateJWT, MapController.getUploadUrl);
